@@ -1,0 +1,8 @@
+\..\..\script\tools 
+ECHO 处于打开状态。
+ota_bin_ver=0x20191022 
+flash_s:  
+flash_e:  
+ram_s:  
+ram_e:  
+sec_ram:  sec_text:   

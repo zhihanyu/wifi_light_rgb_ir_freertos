@@ -1,0 +1,312 @@
+[1mdiff --git a/code/customer/net/WIFI_config.c b/code/customer/net/WIFI_config.c[m
+[1mindex 3f0788e..3c2ae59 100644[m
+[1m--- a/code/customer/net/WIFI_config.c[m
+[1m+++ b/code/customer/net/WIFI_config.c[m
+[36m@@ -441,14 +441,6 @@[m [mint net_service_init(void)[m
+ 		return -1;[m
+ 	if (sys_ctrl_attach(observer) != 0)[m
+ 		return -1;[m
+[31m-#elif S907X_NET_SERVER_ENABLE[m
+[31m-    //s907x_wlan_event_unreg(S907X_EVENT_STAMODE_SCAN_DONE, s907x_zg_event_cb_scan_down);[m
+[31m-    //smart_link_start(s907x_zg_wlan_event_cb, S907X_NET_EVENT_NO_TIME_LIMIT);[m
+[31m-    //s907x_wlan_event_unreg(S907X_EVENT_STAMODE_SCAN_DONE, s907x_zg_event_cb_scan_done);[m
+[31m-    s907x_wlan_event_reg(S907X_EVENT_APMODE_STA_CONNECTED, s907x_zg_event_apmode_sta_connected, NULL);[m
+[31m-    //s907x_wlan_event_reg(S907X_EVENT_STAMODE_CONNECTED, s907x_zg_event_stamode_connected, NULL);[m
+[31m-    //s907x_wlan_event_reg(S907X_EVENT_STAMODE_DISCONNECTED, s907x_zg_event_stamode_disconnected, NULL);[m
+[31m-[m
+ #endif[m
+ 	return 0;[m
+ }[m
+[1mdiff --git a/code/customer/port/s907x_wlan.c b/code/customer/port/s907x_wlan.c[m
+[1mindex 79a2949..0364c85 100644[m
+[1m--- a/code/customer/port/s907x_wlan.c[m
+[1m+++ b/code/customer/port/s907x_wlan.c[m
+[36m@@ -55,7 +55,14 @@[m [mstatic void s907x_zg_wlan_scan_cb(s907x_scan_result_t *presult)[m
+ [m
+ void wlan_sta_scan_once(void)[m
+ {[m
+[31m-    s907x_wlan_scan(s907x_zg_wlan_scan_cb, S907X_DEFAULT_SCAN_AP_NUMS, NULL);[m
+[32m+[m[32m    int mode = S907X_MODE_NONE;[m
+[32m+[m[41m    [m
+[32m+[m[32m    mode = s907x_wlan_get_mode();[m
+[32m+[m[32m    if ((S907X_MODE_STA_AP != mode) && (S907X_MODE_STA != mode)) {[m
+[32m+[m[32m        USER_DBG("Current mode[%d] not support scan.");[m
+[32m+[m[32m        return;[m
+[32m+[m[32m    }[m
+[32m+[m[32m    s907x_wlan_scan(s907x_zg_event_scan_cb, S907X_DEFAULT_SCAN_AP_NUMS, NULL);[m
+ }[m
+ [m
+ static int wlan_connect_normal(s907x_sta_init_t *init)[m
+[36m@@ -146,14 +153,11 @@[m [mstatic int wlan_set_sta(wifi_info_t *wf_info)[m
+     USER_DBG("s907x_sta_init.password_len = %d\n", s907x_sta_init.password_len);[m
+     [m
+     //only ssid password, try to scan target ssid[m
+[31m-    USER_DBG("ret = %d\n",ret);[m
+     ret =  wlan_connect_normal(&s907x_sta_init);[m
+[31m-    USER_DBG("ret = %d\n",ret);[m
+     if(!ret){[m
+         dhcpc_start(0, 0);[m
+         USER_DBG("dhcp start!\n");[m
+     }[m
+[31m-    Z_DEBUG();[m
+     return ret;[m
+ }[m
+ [m
+[36m@@ -210,8 +214,6 @@[m [mstatic int wlan_set_ap_sta(wifi_info_t *wf_info)[m
+ 	int ret;[m
+     sema_t  sema;[m
+     [m
+[31m-    s907x_wlan_event_reg(S907X_EVENT_STAMODE_SCAN_DONE, s907x_zg_event_cb_scan_done, NULL);[m
+[31m-    [m
+     wl_init_sema(&sema, 0, sema_binary);[m
+     ret = s907x_wlan_scan(s907x_zg_event_scan_cb, S907X_DEFAULT_SCAN_AP_NUMS, &sema);[m
+     if(ret) {[m
+[36m@@ -308,12 +310,6 @@[m [mvoid s907x_wlan_send_scan_result(void)[m
+     }[m
+ }[m
+ [m
+[31m-void s907x_zg_event_cb_scan_done()[m
+[31m-{[m
+[31m-    printf("SCAN DOWN\n");[m
+[31m-    USER_DBG("#####################################SCAN_DOWN#################################");[m
+[31m-}[m
+[31m-[m
+ void s907x_zg_event_scan_cb(s907x_scan_result_t *presult)[m
+ {[m
+     sema_t *target_sema;[m
+[36m@@ -388,25 +384,6 @@[m [mvoid s907x_zg_event_scan_cb(s907x_scan_result_t *presult)[m
+     }[m
+ }[m
+ [m
+[31m-void s907x_zg_event_apmode_sta_connected(s907x_event_data *s907x_data, void *context)[m
+[31m-{[m
+[31m-	USER_DBG("s907x event ap sta connected \n");[m
+[31m-	USER_DBG("aid = %d "MAC_FMT "\n", [m
+[31m-        s907x_data->esp_data.sta_connected.aid, [m
+[31m-        s907x_data->esp_data.sta_connected.mac[0], [m
+[31m-        s907x_data->esp_data.sta_connected.mac[1], [m
+[31m-	    s907x_data->esp_data.sta_connected.mac[2], [m
+[31m-	    s907x_data->esp_data.sta_connected.mac[3],[m
+[31m-	    s907x_data->esp_data.sta_connected.mac[4], [m
+[31m-	    s907x_data->esp_data.sta_connected.mac[5]);[m
+[31m-[m
+[31m-    if(strlen(g_scan_buff) != 0) {[m
+[31m-        USER_DBG("scan buff data: %s", g_scan_buff);[m
+[31m-        UDP_Send(g_scan_buff, strlen(g_scan_buff));[m
+[31m-[m
+[31m-        //s907x_wlan_scan(s907x_zg_event_scan_cb, S907X_DEFAULT_SCAN_AP_NUMS, NULL);[m
+[31m-    }[m
+[31m-}[m
+ [m
+ void s907x_zg_event_stamode_connected(s907x_event_data *s907x_data, void *context)[m
+ {[m
+[1mdiff --git a/code/customer/port/s907x_wlan.h b/code/customer/port/s907x_wlan.h[m
+[1mindex 1176f41..d29c84c 100644[m
+[1m--- a/code/customer/port/s907x_wlan.h[m
+[1m+++ b/code/customer/port/s907x_wlan.h[m
+[36m@@ -23,9 +23,7 @@[m [mvoid wlan_sta_scan_once(void);[m
+ int s907x_zg_wlan_start(u8 wf_m, wifi_info_t *wf_inf);[m
+ int wlan_get_mac_addr(u8 netif_id, u8* mac, int mac_len);[m
+ [m
+[31m-void s907x_zg_event_cb_scan_done();[m
+ void s907x_zg_event_scan_cb(s907x_scan_result_t *presult);[m
+[31m-void s907x_zg_event_apmode_sta_connected(s907x_event_data *s907x_data, void *context);[m
+ void s907x_zg_event_stamode_connected(s907x_event_data *s907x_data, void *context);[m
+ void s907x_zg_event_stamode_disconnected(s907x_event_data *s907x_data, void *context);[m
+ void s907x_zg_event_link_cb(struct netif *intf);[m
+[1mdiff --git a/code/customer/socket/udp_perf.c b/code/customer/socket/udp_perf.c[m
+[1mindex c09b8b9..6078f3e 100644[m
+[1m--- a/code/customer/socket/udp_perf.c[m
+[1m+++ b/code/customer/socket/udp_perf.c[m
+[36m@@ -80,9 +80,6 @@[m [mstatic void udp_recv_task()[m
+ [m
+         break;[m
+       }[m
+[31m-#if S907X_BUILD_FOR_ZG[m
+[31m-      s907x_wlan_send_scan_result();[m
+[31m-#endif[m
+     } /*while(1)*/[m
+     free(data_buff);[m
+ }[m
+[1mdiff --git a/out/IAR/Debug/Exe/s907x_ota2.bin b/out/IAR/Debug/Exe/s907x_ota2.bin[m
+[1mindex 845eebf..5ee43ff 100644[m
+Binary files a/out/IAR/Debug/Exe/s907x_ota2.bin and b/out/IAR/Debug/Exe/s907x_ota2.bin differ
+[1mdiff --git a/out/IAR/Debug/Exe/s907x_ota2_wlan.bin b/out/IAR/Debug/Exe/s907x_ota2_wlan.bin[m
+[1mindex b09f8a2..f19e3e4 100644[m
+Binary files a/out/IAR/Debug/Exe/s907x_ota2_wlan.bin and b/out/IAR/Debug/Exe/s907x_ota2_wlan.bin differ
+[1mdiff --git a/script/links/IAR/image.icf b/script/links/IAR/image.icf[m
+[1mindex 3b10c53..f5a3c4f 100644[m
+[1m--- a/script/links/IAR/image.icf[m
+[1m+++ b/script/links/IAR/image.icf[m
+[36m@@ -1,80 +1,80 @@[m
+[31m-include "s907x_bin_api.icf";[m
+[31m-[m
+[31m- [m
+[31m-define symbol __USER_RAM_START__    	= 0x10015900;[m
+[31m-define symbol __USER_RAM_END__      	= 0x10046FFF;[m
+[31m-[m
+[31m-//OTA2 tuya[m
+[31m-//define symbol __USER_CODE_START__ 	= 0x18124000+0x20;[m
+[31m-//define symbol __USER_CODE_END__   	= 0x181FFFFF;  [m
+[31m-[m
+[31m-//OTA2 sci[m
+[31m-//define symbol __USER_CODE_START__ 	= 0x18130000+0x20;[m
+[31m-//define symbol __USER_CODE_END__   	= 0x181FFFFF;  [m
+[31m-[m
+[31m-//OTA1 sci[m
+[31m-define symbol __USER_CODE_START__ 	    = 0x18060000+0x20;[m
+[31m-define symbol __USER_CODE_END__   	    = 0x181FFFFF;  [m
+[31m-[m
+[31m-define memory mem with size = 4G;[m
+[31m-[m
+[31m-define region USER_RAM_REGION    = mem:[from __USER_RAM_START__   to __USER_RAM_END__];[m
+[31m-[m
+[31m-define region USER_COD_REGION    = mem:[from __USER_CODE_START__   to __USER_CODE_END__];[m
+[31m-[m
+[31m-[m
+[31m-keep { section .system.entry.data* };[m
+[31m-define block .system.entry with fixed order{ section .system.entry.data*,};[m
+[31m-[m
+[31m-[m
+[31m-define block SHT$$PREINIT_ARRAY { preinit_array };[m
+[31m-define block SHT$$INIT_ARRAY { init_array };[m
+[31m-define block CPP_INIT with fixed order { block SHT$$PREINIT_ARRAY,[m
+[31m-					block SHT$$INIT_ARRAY };[m
+[31m-[m
+[31m-  [m
+[31m-[m
+[31m-define block .ram.data with fixed order{ section .data*, [m
+[31m-					 section DATA, [m
+[31m-					 section .iar.init_table,[m
+[31m-					 section __DLIB_PERTHREAD,				 	 [m
+[31m-					 block CPP_INIT,[m
+[31m-					 section .mdns.data,[m
+[31m-					 section .mdns.text[m
+[31m-					};[m
+[31m-[m
+[31m-[m
+[31m-[m
+[31m-define block .ota1_ram.data with fixed order {  block .system.entry,[m
+[31m-										        block .ram.data,  };[m
+[31m-[m
+[31m-[m
+[31m-define block .ota1_ram.bss with fixed order{ section .bss*,[m
+[31m-                                             section COMMON, };[m
+[31m-[m
+[31m-[m
+[31m-keep { section .heap.start.data* };[m
+[31m-define block .heap.start with fixed order{ section .heap.start.data*,};[m
+[31m-[m
+[31m-[m
+[31m-[m
+[31m-[m
+[31m-place at start of USER_RAM_REGION  { readwrite, [m
+[31m-                        block .ota1_ram.data,[m
+[31m-                        block .ota1_ram.bss,[m
+[31m-                        section .intvec,[m
+[31m-                        block .heap.start[m
+[31m-					};[m
+[31m-[m
+[31m-[m
+[31m-define block .ota1_image.text with fixed order{[m
+[31m-						section .text*,[m
+[31m-						section .rodata*,[m
+[31m-						section .debug_trace,[m
+[31m-						section CODE,[m
+[31m-						section Veneer, [m
+[31m-						};[m
+[31m-place at start of  USER_COD_REGION   {  readwrite, [m
+[31m-					  block .ota1_image.text };[m
+[31m-[m
+[31m-[m
+[32m+[m[32minclude "s907x_bin_api.icf";[m
+[32m+[m
+[32m+[m[41m [m
+[32m+[m[32mdefine symbol __USER_RAM_START__    	= 0x10015900;[m
+[32m+[m[32mdefine symbol __USER_RAM_END__      	= 0x10046FFF;[m
+[32m+[m
+[32m+[m[32m//OTA2 tuya[m
+[32m+[m[32m//define symbol __USER_CODE_START__ 	= 0x18124000+0x20;[m
+[32m+[m[32m//define symbol __USER_CODE_END__   	= 0x181FFFFF;[m[41m  [m
+[32m+[m
+[32m+[m[32m//OTA2 sci[m
+[32m+[m[32m//define symbol __USER_CODE_START__ 	= 0x18130000+0x20;[m
+[32m+[m[32m//define symbol __USER_CODE_END__   	= 0x181FFFFF;[m[41m  [m
+[32m+[m
+[32m+[m[32m//OTA1 sci[m
+[32m+[m[32mdefine symbol __USER_CODE_START__ 	    = 0x18060000+0x20;[m
+[32m+[m[32mdefine symbol __USER_CODE_END__   	    = 0x181FFFFF;[m[41m  [m
+[32m+[m
+[32m+[m[32mdefine memory mem with size = 4G;[m
+[32m+[m
+[32m+[m[32mdefine region USER_RAM_REGION    = mem:[from __USER_RAM_START__   to __USER_RAM_END__];[m
+[32m+[m
+[32m+[m[32mdefine region USER_COD_REGION    = mem:[from __USER_CODE_START__   to __USER_CODE_END__];[m
+[32m+[m
+[32m+[m
+[32m+[m[32mkeep { section .system.entry.data* };[m
+[32m+[m[32mdefine block .system.entry with fixed order{ section .system.entry.data*,};[m
+[32m+[m
+[32m+[m
+[32m+[m[32mdefine block SHT$$PREINIT_ARRAY { preinit_array };[m
+[32m+[m[32mdefine block SHT$$INIT_ARRAY { init_array };[m
+[32m+[m[32mdefine block CPP_INIT with fixed order { block SHT$$PREINIT_ARRAY,[m
+[32m+[m					[32mblock SHT$$INIT_ARRAY };[m
+[32m+[m
+[32m+[m[41m  [m
+[32m+[m
+[32m+[m[32mdefine block .ram.data with fixed order{ section .data*,[m[41m [m
+[32m+[m					[32m section DATA,[m[41m [m
+[32m+[m					[32m section .iar.init_table,[m
+[32m+[m					[32m section __DLIB_PERTHREAD,[m[41m				 	 [m
+[32m+[m					[32m block CPP_INIT,[m
+[32m+[m					[32m section .mdns.data,[m
+[32m+[m					[32m section .mdns.text[m
+[32m+[m					[32m};[m
+[32m+[m
+[32m+[m
+[32m+[m
+[32m+[m[32mdefine block .ota1_ram.data with fixed order {  block .system.entry,[m
+[32m+[m										[32m        block .ram.data,  };[m
+[32m+[m
+[32m+[m
+[32m+[m[32mdefine block .ota1_ram.bss with fixed order{ section .bss*,[m
+[32m+[m[32m                                             section COMMON, };[m
+[32m+[m
+[32m+[m
+[32m+[m[32mkeep { section .heap.start.data* };[m
+[32m+[m[32mdefine block .heap.start with fixed order{ section .heap.start.data*,};[m
+[32m+[m
+[32m+[m
+[32m+[m
+[32m+[m
+[32m+[m[32mplace at start of USER_RAM_REGION  { readwrite,[m[41m [m
+[32m+[m[32m                        block .ota1_ram.data,[m
+[32m+[m[32m                        block .ota1_ram.bss,[m
+[32m+[m[32m                        section .intvec,[m
+[32m+[m[32m                        block .heap.start[m
+[32m+[m					[32m};[m
+[32m+[m
+[32m+[m
+[32m+[m[32mdefine block .ota1_image.text with fixed order{[m
+[32m+[m						[32msection .text*,[m
+[32m+[m						[32msection .rodata*,[m
+[32m+[m						[32msection .debug_trace,[m
+[32m+[m						[32msection CODE,[m
+[32m+[m						[32msection Veneer,[m[41m [m
+[32m+[m						[32m};[m
+[32m+[m[32mplace at start of  USER_COD_REGION   {  readwrite,[m[41m [m
+[32m+[m					[32m  block .ota1_image.text };[m
+[32m+[m
+[32m+[m
+[1mdiff --git a/script/links/IAR/s9070_build.bat b/script/links/IAR/s9070_build.bat[m
+[1mindex 7aea25d..6f9548a 100644[m
+[1m--- a/script/links/IAR/s9070_build.bat[m
+[1m+++ b/script/links/IAR/s9070_build.bat[m
+[36m@@ -120,4 +120,4 @@[m [mfor /L %%N in (1,1,8) do ([m
+ ( ENDLOCAL & REM RETURN VALUES[m
+     IF "%~2" NEQ "" (SET %~2=%hex%) ELSE ECHO.%hex%[m
+ )[m
+[31m-EXIT /b[m
+\ No newline at end of file[m
+[32m+[m[32mEXIT /b[m
